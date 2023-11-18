@@ -1,0 +1,29 @@
+---
+title: "BTL XSTK"
+output: html_notebook
+---
+
+```{r}
+path <-'D:/K22-KHMT-HCMUT/HK231/XSTK/Assignment/All_GPUs.csv'
+gpu_df = read.csv(path)
+head(gpu_df)
+```
+
+```{r}
+# convert release date
+gpu_df$Release_Date <- substr(gpu_df$Release_Date, 2, nchar(gpu_df$Release_Date) - 1)
+gpu_df <- gpu_df[nchar(gpu_df$Release_Date) == 11, ]
+gpu_df$Release_Date<-as.Date(gpu_df$Release_Date,format="%d-%b-%Y")
+view(gpu_df$Release_Date)
+```
+
+```{r}
+# convert column release_price into numeric
+gpu_df$Release_Price <- as.numeric(substr(gpu_df$Release_Price, 2, nchar(gpu_df$Release_Price)))
+
+# create some new columns year/ month/ quarter from release_date
+gpu_df$Release_Year <- format(gpu_df$Release_Date, "%Y")
+gpu_df$Release_Quarter <- quarters(gpu_df$Release_Date)
+gpu_df$Release_Month <- format(gpu_df$Release_Date,"%m")
+```
+

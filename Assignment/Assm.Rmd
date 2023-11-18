@@ -1,0 +1,336 @@
+---
+title: "Assigmnet"
+output: word_document
+date: "2023-10-31"
+---
+
+1.  Tổng quan: Thêm thư viện để xử lý dữ liệu:
+
+```{r}
+# thêm thư viện
+library(stringr)
+library(tidyr)
+library(dplyr)
+```
+
+Đọc dữ liệu:
+
+```{r}
+# đọc dữ liệu 
+path<-'D:/K22_KHMT_HCMUT/HK231/XSTK/Assignment/Intel_CPUs.csv' #gán địa chỉ file cần đọc vào 1 biến path
+CPU<-read.csv(path) #đọc dữ liệu vào
+head(CPU) #xem 6 hàng đầu của file dữ liệu đọc vào
+```
+
+Chọn ra những biến cần xử lý và phân tích sang một dataframe mới
+
+```{r}
+# chọn ra những biến cần dùng trong file CPU sang một dataframe mới
+new_CPU<-CPU[, c("Launch_Date", "nb_of_Cores", "nb_of_Threads", 
+             "Processor_Base_Frequency", "Max_Memory_Size","Lithography", "TDP")]
+head(new_CPU)
+```
+
+2.  Làm sạch dữ liệu: Kiểm tra dữ liệu khuyết
+
+```{r}
+# Tính số lượng dữ liệu khuyết của từng cột
+apply(is.na(new_CPU), 2, sum)
+```
+
+```{r}
+# Tính tỉ lệ dữ liệu khuyết
+apply(is.na(new_CPU), 2, mean)
+```
+
+Nhận xét: Nhận thấy từ kết quả trên nhận thấy ở biến nb_of_Threads có tận 856 dữ liệu bị khuyết. Tuy số lượng dữ liệu bị khuyết khá lớn (37,49%) nhưng chúng ta vẫn lựa chọn bỏ những giá trị này ra khỏi dataframe new_CPU.
+
+```{r}
+# lọc bỏ những giá trị NA
+new_CPU<-na.omit(new_CPU)
+apply(is.na(new_CPU), 2, sum)
+```
+
+```{r}
+head(new_CPU)
+```
+
+Xử lý biến Launch_Date
+
+```{r}
+# xử lý khoảng trống cho thành giá trị NA
+new_CPU$Launch_Date<-ifelse(new_CPU$Launch_Date == "", NA, new_CPU$Launch_Date)
+# tách cột launch_date thành 2 phần đó là cột launch_quarter và launch_year
+new_CPU<-separate(new_CPU, Launch_Date, c("Launch_Quarter", "Launch_Year"), sep = "'" )
+```
+
+Sau khi xử lý cột dữ liệu Launch_Date các khoảng trống thành NA thì tách thành Launch_Quarter và Launch_Year để dễ dàng xử lý
+
+```{r}
+# đổi cột launch_year thành số 
+new_CPU$Launch_Year<-as.numeric(new_CPU$Launch_Year)
+new_CPU$Launch_Year<-new_CPU$Launch_Year+2000 # cộng vào 2000 để đưa năm về dạng chuẩn
+table(new_CPU$Launch_Year)
+```
+
+Chuyển đổi cột Launch_Year thành dạng số và đưa về dạng chuẩn để dễ dàng thao tác dữ liệu
+
+```{r}
+# xóa bỏ đi cột Launch_Quarter
+new_CPU<-select(new_CPU, -Launch_Quarter)
+```
+
+Xóa bỏ đi cột Launch_Quarter và giữ lại cột Launch_Year
+
+Xử lý biến Processor_Base_Frequency
+
+```{r}
+# Xử lý những ô trống thành NA
+new_CPU$Processor_Base_Frequency<-ifelse(new_CPU$Processor_Base_Frequency == "", NA, new_CPU$Processor_Base_Frequency)
+# tách cột Frequency thành 2 phần là val và unit
+new_CPU<-separate(new_CPU, Processor_Base_Frequency, c("Processor_Base_Frequency_val", "Processor_Base_Frequency_unit"), sep = " " )
+# chuyển đổi cột frequency_val thành dạng số
+new_CPU$Processor_Base_Frequency_val<-as.numeric(new_CPU$Processor_Base_Frequency_val)
+table(new_CPU$Processor_Base_Frequency_unit)
+```
+
+Xử lý cột Processor_Base_Frequency: thay thế những cột trống thành NA để sau đó lọc những cột đó. Do nhận thấy đơn vị của một số Processor có sự khác nhau, cụ thể là GHz và MHz nên tách cột Processor_Base_Frequency thành Processor_Base_Frequency_val và Processor_Base_Frequency_unit. Nhận thấy số đơn vị là GHz nhiều hơn nên sẽ quy chung về GHz để xử lý.
+
+```{r}
+# đổi những ô có đơn vị là MHz thành GHz
+new_CPU$Processor_Base_Frequency<-ifelse(new_CPU$Processor_Base_Frequency_unit == "MHz",
+                                             new_CPU$Processor_Base_Frequency_val/1000,
+                                          new_CPU$Processor_Base_Frequency_val)
+```
+
+Sau khi đưa tất cả về chung đơn vị thì xóa đi những cột không dùng
+
+```{r}
+# xóa bỏ đi 2 cột là frequency_val và frequency_unit
+new_CPU<-select(new_CPU, -Processor_Base_Frequency_val)
+new_CPU<-select(new_CPU, -Processor_Base_Frequency_unit)
+```
+
+Xử lý biến Max_Memory_Size
+
+```{r}
+# xử lý những ô trống thành giá trị NA
+new_CPU$Max_Memory_Size<-ifelse(new_CPU$Max_Memory_Size == "", NA, new_CPU$Max_Memory_Size)
+# tách cột memory_size thành 2 phần là val và unit
+new_CPU<-separate(new_CPU, Max_Memory_Size, c("Max_Memory_Size_val", "Max_Memory_Size_unit"), sep = " ")
+# đổi cột max_memory_size_val thành dạng số
+new_CPU$Max_Memory_Size_val<-as.numeric(new_CPU$Max_Memory_Size_val)
+# xem đơn vị nào là chủ yếu trong cột memory_size_unit
+table(new_CPU$Max_Memory_Size_unit)
+# số hàng có đơn vị là GB nhiều hơn là TB nên đưa  tất cả về GB
+new_CPU$Max_Memory_Size<-ifelse(new_CPU$Max_Memory_Size_unit == "TB",
+                                             new_CPU$Max_Memory_Size_val*1000,
+                                          new_CPU$Max_Memory_Size_val)
+```
+
+Xử lý cột Max_Memory_Size: thay thế những cột trống thành NA để dễ dàng lọc dữ liệu. Sau đó tách cột thành 2 cột Max_Memory_Size_val và Max_Memory_Size_unit. Nhận thấy tỉ lệ dữ liệu có đơn vị là GB nhiều hơn TB nên chuyển đổi những cột có đơn vị là TB thành GB.
+
+```{r}
+# xóa bỏ đi cột memory_size_val và memory_size_unit
+new_CPU<-select(new_CPU, -Max_Memory_Size_val)
+new_CPU<-select(new_CPU, -Max_Memory_Size_unit)
+```
+
+Sau khi đưa tất cả về chung đơn vị thì xóa đi những cột không dùng
+
+Xử lý biến Lithography:
+
+```{r}
+#xử lý những ô trống thành NA
+new_CPU$Lithography<-ifelse(new_CPU$Lithography == "", NA, new_CPU$Lithography)
+#tách cột Lithography thành 2 phần là lithography_val và lithography_unit
+new_CPU<-separate(new_CPU, Lithography, c("Lithography_val", "Lithography_unit"), sep = " ")
+```
+
+Sau khi xử lý các dữ liệu trống của cột Lithography và chia cột thành 2 phần Value, Unit
+
+```{r}
+#đổi cột Lithography_val thành dạng số
+new_CPU$Lithography_val<-as.numeric(new_CPU$Lithography_val)
+table(new_CPU$Lithography_unit)
+```
+
+Tiếp theo xóa bỏ những cột dữ liệu NA
+
+```{r}
+# xóa bỏ đi cột lithography_unit
+new_CPU<-select(new_CPU, -Lithography_unit)
+#gán lại cột lithography_val cho lithography
+new_CPU$Lithography<-new_CPU$Lithography_val
+new_CPU<-select(new_CPU, -Lithography_val)
+new_CPU<-na.omit(new_CPU)
+```
+
+Xử lý biến TDP
+
+```{r}
+# Xử lý khoảng trống thành NA
+new_CPU$TDP<-ifelse(new_CPU$TDP == "", NA, new_CPU$TDP)
+# tách cộng TDP thành val và unit
+new_CPU<-separate(new_CPU, TDP, c("TDP_val", "TDP_unit"), sep = " ")
+# chuyển đổi cột TDP thành dạng số
+new_CPU$TDP_val<-as.numeric(new_CPU$TDP_val)
+# xem đơn vị nào là chủ yếu trong TDP
+table(new_CPU$TDP_unit)
+```
+
+Sau khi xử lý cột TDP thì nhận thấy tất cả dữ liệu đều đã cùng dữ liệu và cũng chuyển thành dạng numeric, nên chỉ cần xóa bỏ cột không dùng
+
+```{r}
+new_CPU$TDP<-new_CPU$TDP_val
+new_CPU<-select(new_CPU, -TDP_unit)
+new_CPU<-select(new_CPU, -TDP_val)
+new_CPU<-na.omit(new_CPU)
+```
+
+Sau khi xử lý tất cả các cột theo các kiểu dữ liệu mong muốn thì thu được dataframe như sau:
+
+```{r}
+head(new_CPU)
+```
+
+3.  Thống kê mô tả dữ liệu: Thông tin tổng quát về dataframe sau khi tiền xử lý:
+
+```{r}
+summary(new_CPU)
+```
+
+Tính các giá trị thống kê tả: Trung bình mẫu:
+
+```{r}
+mean<-apply(new_CPU[,c("nb_of_Cores", "nb_of_Threads", "Lithography", "Processor_Base_Frequency", "Max_Memory_Size", "TDP")], 2, mean)
+```
+
+Độ lệch chuẩn:
+
+```{r}
+sd<-apply(new_CPU[,c("nb_of_Cores", "nb_of_Threads", "Lithography", "Processor_Base_Frequency", "Max_Memory_Size", "TDP")], 2, sd)
+```
+
+Phân vị 1:
+
+```{r}
+Q1<-apply(new_CPU[,c("nb_of_Cores", "nb_of_Threads", "Lithography", "Processor_Base_Frequency", "Max_Memory_Size", "TDP")], 2, quantile, probs = 0.25)
+```
+
+Trung vị:
+
+```{r}
+med<-apply(new_CPU[,c("nb_of_Cores", "nb_of_Threads", "Lithography", "Processor_Base_Frequency", "Max_Memory_Size", "TDP")], 2, median)
+```
+
+Phân vị 3:
+
+```{r}
+Q3<-apply(new_CPU[,c("nb_of_Cores", "nb_of_Threads", "Lithography", "Processor_Base_Frequency", "Max_Memory_Size", "TDP")], 2, quantile, probs = 0.75)
+```
+
+Giá trị lớn nhất:
+
+```{r}
+Max<-apply(new_CPU[,c("nb_of_Cores", "nb_of_Threads", "Lithography", "Processor_Base_Frequency", "Max_Memory_Size", "TDP")], 2, max)
+```
+
+Giá trị nhỏ nhất:
+
+```{r}
+Min<-apply(new_CPU[,c("nb_of_Cores", "nb_of_Threads", "Lithography", "Processor_Base_Frequency", "Max_Memory_Size", "TDP")], 2, min)
+```
+
+Kết quả thu được:
+
+```{r}
+data.frame(mean, sd, Q1, med, Q3, Max, Min)
+```
+
+```{r}
+apply(is.na(new_CPU),2,which)
+```
+Để thuận tiện thể hiện sự tuyến tính giữa các biến,thuận tiện cho mô hình hồi quy thì trừ Launch_Year,Bus_Speed_Type,giữ new_CPU ban đầu, chuyển 6 biến còn lại sang dạng log,chuyển qua new_CPU2.
+
+```{r}
+new_CPU2 <- new_CPU
+new_CPU2[,c("nb_of_Cores","nb_of_Threads","Lithography","Processor_Base_Frequency"
+                ,"Max_Memory_Size","TDP")] <- log(new_CPU2[,c("nb_of_Cores","nb_of_Threads","Lithography","Processor_Base_Frequency"
+                ,"Max_Memory_Size","TDP")]+1)
+```
+Biểu đồ: 
+Sử dụng hist để vẽ biến Processor_Frequency
+```{r}
+hist(new_CPU2$Processor_Base_Frequency,
+main = "Histogram of ProcessorFrequency",
+xlab = "ProcessorFrequency(GHz)",
+ylim = c(0,300),
+col = "lightblue",
+border = "darkblue",
+freq = TRUE
+)
+```
+Vẽ phân phối biến Processor_Base_Frequency cho biến Launch_Year dùng boxplot
+
+```{r}
+boxplot(Processor_Base_Frequency~Launch_Year,
+data = new_CPU2,
+main = "Different boxplots for each ProcessorFrequency",
+xlab = "Year",
+ylab = "ProcessorFrequency(GHz)",
+col = "steelblue1",
+border = "midnightblue")
+```
+Dùng Plot vẽ phân phối cho biến nb_of_Cores
+```{r}
+plot(new_CPU2$nb_of_Cores,new_CPU2$Processor_Base_Frequency, 
+     main = "Cores by ProcessorFrequency",
+     xlab = "Cores",
+     ylab = "ProcessorFrequency",
+     col = "steelblue1" 
+)
+```
+Dùng Plot vẽ phân phối cho biến nb_of_Threads
+
+```{r}
+plot(new_CPU2$nb_of_Threads,new_CPU2$Processor_Base_Frequency, 
+     main = "Threads by ProcessorFrequency",
+     xlab = "Threads",
+     ylab = "ProcessorFrequency",
+     col = "lightblue"
+)
+```
+Dùng Plot vẽ phân phối cho biến Lithography
+```{r}
+plot(new_CPU2$Lithography,new_CPU2$Processor_Base_Frequency, 
+     main = "lithography by ProcessorFrequency",
+     xlab = "Lithography",
+     ylab = "ProcessorFrequency",
+     col = "lightblue"
+)
+```
+Dùng Plot vẽ phân phối cho biến Max_Memory_Size
+```{r}
+plot(new_CPU2$Max_Memory_Size,new_CPU2$Processor_Base_Frequency, 
+     main = "MaxMemorySize by ProcessorFrequency",
+     xlab = "MaxMemorySize",
+     ylab = "ProcessorFrequency",
+     col = "darkblue"
+)
+```
+Dùng Plot vẽ phân phối cho biến TDP
+```{r}
+plot(new_CPU2$TDP,new_CPU2$Processor_Base_Frequency, 
+     main = "TDP by ProcessorFrequency",
+     xlab = "TDP",
+     ylab = "ProcessorFrequency",
+     col = "darkblue"
+)
+```
+Mô hình hồi quy tuyến tính 1 full các biến:
+```{r}
+M1<-lm(Processor_Base_Frequency~Launch_Year + nb_of_Cores + nb_of_Threads +Max_Memory_Size + TDP,
+       data = new_CPU2)
+summary(M1)
+```
